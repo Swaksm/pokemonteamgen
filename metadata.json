@@ -1,0 +1,5 @@
+{
+  "name": "Pokémon Team Builder",
+  "description": "An application to generate, collect, and organize Pokémon into teams. All your data is saved locally in your browser.",
+  "requestFramePermissions": []
+}
