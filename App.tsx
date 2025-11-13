@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useCallback } from 'react';
 import type { Pokemon, Team } from './types';
 import { PokemonStatus } from './types';
@@ -11,10 +10,11 @@ import Button from './components/Button';
 import PokemonCard from './components/PokemonCard';
 import TeamCard from './components/TeamCard';
 import Modal from './components/Modal';
-// FIX: Import `XIcon` to be used in the error message component.
-import { LoaderIcon, PlusIcon, SparklesIcon, BookUserIcon, ShieldIcon, XIcon } from './components/icons';
+import BattleTab from './components/BattleTab';
+import GameCornerTab from './components/GameCornerTab';
+import { LoaderIcon, PlusIcon, SparklesIcon, BookUserIcon, ShieldIcon, XIcon, SwordsIcon, TicketIcon } from './components/icons';
 
-type ActiveTab = 'pokedex' | 'teams';
+type ActiveTab = 'pokedex' | 'teams' | 'battle' | 'gamecorner';
 type ModalState = 'none' | 'confirm-resell' | 'confirm-delete-pokemon' | 'create-team' | 'confirm-delete-team';
 
 const App: React.FC = () => {
@@ -73,6 +73,39 @@ const App: React.FC = () => {
     } finally {
       setIsGenerating(false);
     }
+  };
+
+  const handleGenerateTeam = async () => {
+    const teamCost = GENERATE_COST * 6;
+    if (tokens < teamCost) {
+      setError(`Not enough tokens! You need ${teamCost}.`);
+      return;
+    }
+    setIsGenerating(true);
+    setError(null);
+    try {
+      const newTokens = tokens - teamCost;
+      const generatedPokemonDataArray = await api.generateTeamOfPokemon();
+      const newPokemons = await Promise.all(generatedPokemonDataArray.map(p => db.addPokemon(p)));
+      
+      await db.setTokens(newTokens);
+      setTokens(newTokens);
+      setPokemons(prev => [...newPokemons, ...prev]);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'An unknown error occurred.');
+    } finally {
+      setIsGenerating(false);
+    }
+  };
+
+  const updateSinglePokemonState = (updatedPokemon: Pokemon) => {
+    setPokemons(prev => prev.map(p => p.id === updatedPokemon.id ? updatedPokemon : p));
+  };
+  
+  const handleUpdateTokens = async (amount: number) => {
+    const newTokens = tokens + amount;
+    await db.setTokens(newTokens);
+    setTokens(newTokens);
   };
 
   const openModal = (state: ModalState, data?: any) => {
@@ -201,13 +234,19 @@ const App: React.FC = () => {
     if (activeTab === 'pokedex') {
       return (
         <>
-        <div className="bg-slate-800/50 p-6 rounded-lg border border-slate-700 text-center">
-            <h2 className="text-2xl font-bold mb-2">Generate a New Pokémon!</h2>
-            <p className="text-slate-400 mb-4">It costs {GENERATE_COST} tokens to generate a new Pokémon.</p>
-            <Button onClick={handleGeneratePokemon} disabled={isGenerating || tokens < GENERATE_COST} className="w-full md:w-auto">
-              {isGenerating ? <LoaderIcon className="w-5 h-5 animate-spin"/> : <SparklesIcon className="w-5 h-5" />}
-              {isGenerating ? 'Generating...' : 'Generate Pokémon'}
-            </Button>
+          <div className="bg-slate-800/50 p-6 rounded-lg border border-slate-700 text-center">
+            <h2 className="text-2xl font-bold mb-2">Generate New Pokémon!</h2>
+            <p className="text-slate-400 mb-4">Generate a single Pokémon for {GENERATE_COST} tokens or a whole team of six.</p>
+            <div className="flex flex-col md:flex-row gap-4 justify-center">
+              <Button onClick={handleGeneratePokemon} disabled={isGenerating || tokens < GENERATE_COST} className="w-full md:w-auto">
+                {isGenerating ? <LoaderIcon className="w-5 h-5 animate-spin"/> : <SparklesIcon className="w-5 h-5" />}
+                {isGenerating ? 'Generating...' : `Generate Pokémon (${GENERATE_COST})`}
+              </Button>
+              <Button onClick={handleGenerateTeam} disabled={isGenerating || tokens < GENERATE_COST * 6} className="w-full md:w-auto" variant="secondary">
+                {isGenerating ? <LoaderIcon className="w-5 h-5 animate-spin"/> : <SparklesIcon className="w-5 h-5" />}
+                {isGenerating ? 'Generating...' : `Generate Team (${GENERATE_COST * 6})`}
+              </Button>
+            </div>
           </div>
           <div className="mt-8">
             <h2 className="text-3xl font-bold mb-4">My Collection ({pokemons.length})</h2>
@@ -259,6 +298,26 @@ const App: React.FC = () => {
             </>
         )
     }
+
+    if (activeTab === 'battle') {
+        return (
+            <BattleTab
+                teams={teams}
+                allPokemons={pokemons}
+                updatePokemonInDb={db.updatePokemon}
+                updatePokemonInState={updateSinglePokemonState}
+                setError={setError}
+            />
+        )
+    }
+    
+    if (activeTab === 'gamecorner') {
+        return (
+            <GameCornerTab 
+                onWinTokens={handleUpdateTokens}
+            />
+        )
+    }
   };
 
   return (
@@ -280,6 +339,12 @@ const App: React.FC = () => {
             </button>
             <button onClick={() => setActiveTab('teams')} className={`flex items-center gap-2 px-4 py-2 font-semibold transition-colors ${activeTab === 'teams' ? 'border-b-2 border-poke-yellow text-poke-yellow' : 'text-slate-400 hover:text-white'}`}>
                 <ShieldIcon className="w-5 h-5"/> Teams
+            </button>
+            <button onClick={() => setActiveTab('battle')} className={`flex items-center gap-2 px-4 py-2 font-semibold transition-colors ${activeTab === 'battle' ? 'border-b-2 border-poke-yellow text-poke-yellow' : 'text-slate-400 hover:text-white'}`}>
+                <SwordsIcon className="w-5 h-5"/> Battle
+            </button>
+             <button onClick={() => setActiveTab('gamecorner')} className={`flex items-center gap-2 px-4 py-2 font-semibold transition-colors ${activeTab === 'gamecorner' ? 'border-b-2 border-poke-yellow text-poke-yellow' : 'text-slate-400 hover:text-white'}`}>
+                <TicketIcon className="w-5 h-5"/> Game Corner
             </button>
         </div>
 

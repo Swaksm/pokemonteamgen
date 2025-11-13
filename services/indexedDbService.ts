@@ -1,5 +1,4 @@
-
-import { DB_NAME, DB_VERSION, POKEMONS_STORE, TEAMS_STORE, SETTINGS_STORE, TOKEN_BALANCE_KEY, INITIAL_TOKENS } from '../constants';
+import { DB_NAME, DB_VERSION, POKEMONS_STORE, TEAMS_STORE, SETTINGS_STORE, TOKEN_BALANCE_KEY, INITIAL_TOKENS, LAST_SPIN_TIME_KEY } from '../constants';
 import type { Pokemon, Team, TokenBalance } from '../types';
 
 let db: IDBDatabase;
@@ -68,6 +67,29 @@ export const setTokens = async (balance: number): Promise<void> => {
     request.onerror = () => reject(request.error);
   });
 };
+
+export const getLastSpinTime = async (): Promise<number> => {
+    await initDB();
+    return new Promise((resolve, reject) => {
+        const store = getStore(SETTINGS_STORE, 'readonly');
+        const request = store.get(LAST_SPIN_TIME_KEY);
+        request.onsuccess = () => {
+            resolve(request.result?.time ?? 0);
+        };
+        request.onerror = () => reject(request.error);
+    });
+};
+
+export const setLastSpinTime = async (time: number): Promise<void> => {
+    await initDB();
+    return new Promise((resolve, reject) => {
+        const store = getStore(SETTINGS_STORE, 'readwrite');
+        const request = store.put({ id: LAST_SPIN_TIME_KEY, time });
+        request.onsuccess = () => resolve();
+        request.onerror = () => reject(request.error);
+    });
+};
+
 
 // Pokémon
 export const addPokemon = async (pokemon: Omit<Pokemon, 'id' | 'status'>): Promise<Pokemon> => {

@@ -1,4 +1,3 @@
-
 import React from 'react';
 
 type IconProps = {
@@ -65,5 +64,37 @@ export const BookUserIcon: React.FC<IconProps> = ({ className }) => (
 export const ShieldIcon: React.FC<IconProps> = ({ className }) => (
     <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}>
         <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10"/>
+    </svg>
+);
+
+export const SwordsIcon: React.FC<IconProps> = ({ className }) => (
+    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}>
+        <path d="M14.5 17.5 3 6.05a1 1 0 0 1 0-1.41l2.34-2.34a1 1 0 0 1 1.41 0L17.5 13.5"/>
+        <path d="m9.5 7.5 11.05 11.05a1 1 0 0 1 0 1.41l-2.34 2.34a1 1 0 0 1-1.41 0L6.5 11.5"/>
+        <path d="m14 8 3 3"/>
+        <path d="M5 17 2 20"/>
+    </svg>
+);
+
+export const TicketIcon: React.FC<IconProps> = ({ className }) => (
+    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}>
+        <path d="M2 9a3 3 0 0 1 0 6v2a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-2a3 3 0 0 1 0-6V7a2 2 0 0 0-2-2H4a2 2 0 0 0-2 2Z"/>
+        <path d="M13 5v2"/>
+        <path d="M13 17v2"/>
+        <path d="M13 11v2"/>
+    </svg>
+);
+
+export const PokeballIcon: React.FC<IconProps> = ({ className }) => (
+    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}>
+        <circle cx="12" cy="12" r="10" />
+        <line x1="2" y1="12" x2="22" y2="12" />
+        <circle cx="12" cy="12" r="3" />
+    </svg>
+);
+
+export const ChevronLeftIcon: React.FC<IconProps> = ({ className }) => (
+    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}>
+        <polyline points="15 18 9 12 15 6" />
     </svg>
 );

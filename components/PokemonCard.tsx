@@ -1,10 +1,9 @@
-
 import React from 'react';
 import type { Pokemon, Team } from '../types';
-import { PokemonRarity } from '../types';
 import { RARITY_CONFIG, RESELL_VALUES, MAX_POKEMON_PER_TEAM } from '../constants';
 import Button from './Button';
 import { CoinsIcon, PlusIcon, Trash2Icon } from './icons';
+import TypeBadge from './TypeBadge';
 
 interface PokemonCardProps {
   pokemon: Pokemon;
@@ -36,7 +35,9 @@ const PokemonCard: React.FC<PokemonCardProps> = ({ pokemon, teams, onResell, onD
       </div>
       <div className="p-4">
         <h3 className="font-bold text-lg text-center truncate">{pokemon.name}</h3>
-        <p className="text-slate-400 text-sm text-center">ID: {pokemon.apiId}</p>
+        <div className="flex justify-center gap-2 my-2">
+            {pokemon.types?.map(type => <TypeBadge key={type} type={type} />)}
+        </div>
         <div className="mt-4 flex flex-col gap-2">
            <Button variant="secondary" onClick={() => setIsAddingToTeam(true)} disabled={isPokemonInAnyTeam}>
             <PlusIcon className="w-4 h-4" /> {isPokemonInAnyTeam ? 'In a Team' : 'Add to Team'}
