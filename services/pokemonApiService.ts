@@ -1,3 +1,4 @@
+
 import { GoogleGenAI, Type, Modality } from '@google/genai';
 import { PokemonRarity, PokemonType, AttackCategory, type Pokemon, type Attack, type PokemonStats } from '../types';
 
@@ -5,198 +6,161 @@ const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
 
 const rarityValues = Object.values(PokemonRarity).join(', ');
 const typeValues = Object.values(PokemonType).join(', ');
-const categoryValues = Object.values(AttackCategory).filter(c => c !== AttackCategory.STATUS).join(', '); // For now, only Physical/Special
+const categoryValues = Object.values(AttackCategory).filter(c => c !== AttackCategory.STATUS).join(', ');
 
 const STATS_SCHEMA = {
     type: Type.OBJECT,
-    description: "The Pokémon's base stats. As a guideline, Common Pokémon have a total of ~300 points, Rare ~400, Epic ~500, and Legendary ~600.",
     properties: {
-        hp: { type: Type.INTEGER, description: "Health Points stat." },
-        attack: { type: Type.INTEGER, description: "Attack stat." },
-        defense: { type: Type.INTEGER, description: "Defense stat." },
-        specialAttack: { type: Type.INTEGER, description: "Special Attack stat." },
-        specialDefense: { type: Type.INTEGER, description: "Special Defense stat." },
-        speed: { type: Type.INTEGER, description: "Speed stat." },
+        hp: { type: Type.INTEGER },
+        attack: { type: Type.INTEGER },
+        defense: { type: Type.INTEGER },
+        specialAttack: { type: Type.INTEGER },
+        specialDefense: { type: Type.INTEGER },
+        speed: { type: Type.INTEGER },
     },
     required: ["hp", "attack", "defense", "specialAttack", "specialDefense", "speed"]
 };
 
 const ATTACKS_SCHEMA = {
     type: Type.ARRAY,
-    description: "An array of exactly 4 unique attacks.",
     items: {
       type: Type.OBJECT,
       properties: {
-        name: { type: Type.STRING, description: "The name of the attack." },
-        type: { type: Type.STRING, description: `The attack's type. Must be one of: ${typeValues}` },
-        category: { type: Type.STRING, description: `The attack's category. Must be one of: ${categoryValues}` },
-        power: { type: Type.INTEGER, description: "The attack's power value, between 10 and 120." },
-        accuracy: { type: Type.INTEGER, description: "The attack's accuracy, from 0 to 100." }
+        name: { type: Type.STRING },
+        type: { type: Type.STRING },
+        category: { type: Type.STRING },
+        power: { type: Type.INTEGER },
+        accuracy: { type: Type.INTEGER }
       },
       required: ["name", "type", "category", "power", "accuracy"]
     }
 };
 
-const POKEMON_PROPERTIES = {
-    name: { type: Type.STRING, description: "The name of the new Pokémon." },
-    rarity: { type: Type.STRING, description: `The rarity of the Pokémon. Must be one of: ${rarityValues}` },
-    types: {
-      type: Type.ARRAY,
-      description: `An array of 1 or 2 Pokémon types from the available list: ${typeValues}`,
-      items: { type: Type.STRING }
+const POKEMON_SCHEMA = {
+    type: Type.OBJECT,
+    properties: {
+        name: { type: Type.STRING },
+        rarity: { type: Type.STRING },
+        types: { type: Type.ARRAY, items: { type: Type.STRING } },
+        imagePrompt: { type: Type.STRING },
+        stats: STATS_SCHEMA,
+        attacks: ATTACKS_SCHEMA,
+        lore: { type: Type.STRING, description: "A creative 2-sentence Pokedex entry." }
     },
-    imagePrompt: { type: Type.STRING, description: "A detailed prompt for an image generation model to create the Pokémon's artwork. Describe its appearance, colors, and style." },
-    stats: STATS_SCHEMA,
-    attacks: ATTACKS_SCHEMA
+    required: ["name", "rarity", "types", "imagePrompt", "stats", "attacks", "lore"]
 };
-
-async function generatePokemonData() {
-  const response = await ai.models.generateContent({
-    model: 'gemini-2.5-flash',
-    contents: `Generate a new, unique, and creative Pokémon. Provide its name, rarity, one or two types, a detailed image prompt, its base stats (HP, Attack, Defense, Special Attack, Special Defense, Speed), and an array of 4 distinct attacks. Each attack needs a name, type, category (Physical or Special), power, and accuracy.`,
-    config: {
-      responseMimeType: "application/json",
-      responseSchema: {
-        type: Type.OBJECT,
-        properties: POKEMON_PROPERTIES,
-        required: ["name", "rarity", "types", "imagePrompt", "stats", "attacks"]
-      },
-    },
-  });
-
-  const jsonString = response.text.trim();
-  return JSON.parse(jsonString);
-}
-
-async function generateMultiplePokemonData(count: number) {
-    const response = await ai.models.generateContent({
-      model: 'gemini-2.5-flash',
-      contents: `Generate an array of ${count} new, unique, and creative Pokémon. For each, provide its name, rarity, one or two types, a detailed image prompt, its base stats (HP, Attack, Defense, Special Attack, Special Defense, Speed), and an array of 4 distinct attacks. Each attack needs a name, type, category (Physical or Special), power, and accuracy.`,
-      config: {
-        responseMimeType: "application/json",
-        responseSchema: {
-          type: Type.ARRAY,
-          items: {
-            type: Type.OBJECT,
-            properties: POKEMON_PROPERTIES,
-            required: ["name", "rarity", "types", "imagePrompt", "stats", "attacks"]
-          }
-        },
-      },
-    });
-  
-    const jsonString = response.text.trim();
-    return JSON.parse(jsonString);
-  }
 
 async function generatePokemonImage(prompt: string): Promise<string> {
   const response = await ai.models.generateContent({
     model: 'gemini-2.5-flash-image',
-    contents: {
-      parts: [{ text: prompt }],
-    },
-    config: {
-      responseModalities: [Modality.IMAGE],
-    },
+    contents: { parts: [{ text: `A vibrant, professional Pokemon card style illustration of: ${prompt}. Solid colorful background, high quality anime style.` }] },
   });
 
   for (const part of response.candidates[0].content.parts) {
     if (part.inlineData) {
-      const base64ImageBytes = part.inlineData.data;
-      return `data:image/png;base64,${base64ImageBytes}`;
+      return `data:image/png;base64,${part.inlineData.data}`;
     }
   }
-  throw new Error("Image generation failed: no image data was received from the API.");
+  throw new Error("Image generation failed");
 }
 
-const processAndValidatePokemonData = (data: any) => {
-    const { name, rarity: rawRarity, types: rawTypes, imagePrompt, stats, attacks } = data;
+// Fix: Added missing generateStatsForPokemon function to populate stats and attacks for existing Pokemon
+export const generateStatsForPokemon = async (name: string, rarity: PokemonRarity): Promise<{ stats: PokemonStats; attacks: Attack[]; types: PokemonType[]; lore: string }> => {
+  const response = await ai.models.generateContent({
+    model: 'gemini-3-flash-preview',
+    contents: `Generate detailed RPG stats, types, and 4 attacks for a Pokemon named "${name}" with rarity "${rarity}".`,
+    config: {
+      responseMimeType: "application/json",
+      responseSchema: {
+        type: Type.OBJECT,
+        properties: {
+          types: { type: Type.ARRAY, items: { type: Type.STRING } },
+          stats: STATS_SCHEMA,
+          attacks: ATTACKS_SCHEMA,
+          lore: { type: Type.STRING }
+        },
+        required: ["types", "stats", "attacks", "lore"]
+      },
+    },
+  });
 
-    let rarity: PokemonRarity = PokemonRarity.COMMON;
-    if (Object.values(PokemonRarity).includes(rawRarity as PokemonRarity)) {
-        rarity = rawRarity as PokemonRarity;
-    } else {
-        console.warn(`Received unexpected rarity "${rawRarity}", defaulting to Common.`);
-    }
-
-    const types: PokemonType[] = (rawTypes as any[]).map(t => {
-        if (Object.values(PokemonType).includes(t)) {
-            return t as PokemonType;
-        }
-        console.warn(`Received unexpected type "${t}", filtering it out.`);
-        return null;
-    }).filter((t): t is PokemonType => t !== null).slice(0, 2);
-
-    if (types.length === 0) {
-        types.push(PokemonType.NORMAL);
-    }
-
-    const apiId = -Math.floor(Math.random() * 1000000);
-
-    return { apiId, name, rarity, types, imagePrompt, stats, attacks };
+  return JSON.parse(response.text);
 };
 
-export const generatePokemon = async (): Promise<Omit<Pokemon, 'id' | 'status'>> => {
-  try {
-    const rawData = await generatePokemonData();
-    const { apiId, name, rarity, types, imagePrompt, stats, attacks } = processAndValidatePokemonData(rawData);
-    const imageUrl = await generatePokemonImage(imagePrompt);
-    return { apiId, name, imageUrl, rarity, types, stats, attacks };
-  } catch (error) {
-    console.error("Error generating Pokémon with AI:", error);
-    if (error instanceof Error && (error.message.includes('API key not valid') || error.message.includes('permission'))) {
-        throw new Error('The API key is invalid or missing permissions. Please check your configuration.');
-    }
-    throw new Error('Failed to generate a new Pokémon using AI. Please check the console for details and try again.');
-  }
+export const generatePokemon = async (spec?: string): Promise<Omit<Pokemon, 'id' | 'status'>> => {
+  const model = spec ? 'gemini-3-pro-preview' : 'gemini-3-flash-preview';
+  const prompt = spec 
+    ? `Create a unique Pokemon based on this specification: "${spec}". Ensure the stats, types, and moves reflect the description accurately.`
+    : `Generate a new, unique, and creative Pokémon.`;
+
+  const response = await ai.models.generateContent({
+    model,
+    contents: prompt,
+    config: {
+      responseMimeType: "application/json",
+      responseSchema: POKEMON_SCHEMA,
+    },
+  });
+
+  const raw = JSON.parse(response.text);
+  const imageUrl = await generatePokemonImage(raw.imagePrompt);
+  
+  return {
+    apiId: -Math.floor(Math.random() * 1000000),
+    name: raw.name,
+    imageUrl,
+    rarity: Object.values(PokemonRarity).includes(raw.rarity) ? raw.rarity : PokemonRarity.COMMON,
+    types: raw.types.slice(0, 2),
+    stats: raw.stats,
+    attacks: raw.attacks,
+    lore: raw.lore
+  };
 };
 
 export const generateTeamOfPokemon = async (): Promise<Omit<Pokemon, 'id' | 'status'>[]> => {
-  try {
-    const pokemonDataArray = await generateMultiplePokemonData(6);
-    const completePokemonArray = await Promise.all(pokemonDataArray.map(async (data: any) => {
-      const { apiId, name, rarity, types, imagePrompt, stats, attacks } = processAndValidatePokemonData(data);
-      const imageUrl = await generatePokemonImage(imagePrompt);
-      return { apiId, name, imageUrl, rarity, types, stats, attacks };
-    }));
-    return completePokemonArray;
-  } catch (error) {
-    console.error("Error generating Pokémon team with AI:", error);
-    if (error instanceof Error && (error.message.includes('API key not valid') || error.message.includes('permission'))) {
-        throw new Error('The API key is invalid or missing permissions. Please check your configuration.');
-    }
-    throw new Error('Failed to generate a new Pokémon team using AI. Please check the console for details and try again.');
-  }
+  const response = await ai.models.generateContent({
+    model: 'gemini-3-flash-preview',
+    contents: `Generate an array of 6 unique Pokemon.`,
+    config: {
+      responseMimeType: "application/json",
+      responseSchema: { type: Type.ARRAY, items: POKEMON_SCHEMA },
+    },
+  });
+
+  const dataArray = JSON.parse(response.text);
+  return Promise.all(dataArray.map(async (raw: any) => {
+    const imageUrl = await generatePokemonImage(raw.imagePrompt);
+    return {
+      apiId: -Math.floor(Math.random() * 1000000),
+      name: raw.name,
+      imageUrl,
+      rarity: raw.rarity,
+      types: raw.types,
+      stats: raw.stats,
+      attacks: raw.attacks,
+      lore: raw.lore
+    };
+  }));
 };
 
-export const generateStatsForPokemon = async (pokemonName: string, pokemonRarity: PokemonRarity): Promise<{types: PokemonType[], stats: PokemonStats, attacks: Attack[]}> => {
-  try {
-    const response = await ai.models.generateContent({
-      model: 'gemini-2.5-flash',
-      contents: `Generate battle stats for a Pokémon named "${pokemonName}" with a rarity of "${pokemonRarity}". Provide its types (one or two), its base stats (HP, Attack, Defense, Special Attack, Special Defense, Speed), and an array of 4 distinct attacks. Each attack needs a name, type, category (Physical or Special), power, and accuracy.`,
-      config: {
-        responseMimeType: "application/json",
-        responseSchema: {
-          type: Type.OBJECT,
-          properties: {
-            types: {
-                type: Type.ARRAY,
-                description: `An array of 1 or 2 Pokémon types from the available list: ${typeValues}`,
-                items: { type: Type.STRING }
-            },
-            stats: STATS_SCHEMA,
-            attacks: ATTACKS_SCHEMA
-          },
-          required: ["types", "stats", "attacks"]
-        },
-      },
-    });
+export const analyzeTeamSynergy = async (teamPokemons: Pokemon[]): Promise<string> => {
+  const teamContext = teamPokemons.map(p => `${p.name} (${p.types?.join('/')}) - Stats: ${JSON.stringify(p.stats)}`).join('\n');
+  const response = await ai.models.generateContent({
+    model: 'gemini-3-pro-preview',
+    contents: `As a Pokemon Professor, analyze this team and provide a brief strategic report (max 150 words). Identify weaknesses and suggest a type or role to add.\n\nTeam:\n${teamContext}`,
+  });
+  return response.text;
+};
 
-    const jsonString = response.text.trim();
-    const { types, stats, attacks } = JSON.parse(jsonString);
-    return { types, stats, attacks };
-  } catch (error) {
-    console.error(`Error generating stats for ${pokemonName}:`, error);
-    throw new Error(`Failed to generate stats for ${pokemonName}.`);
-  }
+export const getBattleAdvice = async (playerActive: any, opponentActive: any, log: string[]): Promise<string> => {
+    const context = `Your Pokemon: ${playerActive.name} (${playerActive.types.join('/')}) HP: ${playerActive.currentHp}/${playerActive.stats.hp}
+Opponent: ${opponentActive.name} (${opponentActive.types.join('/')}) HP: ${opponentActive.currentHp}/${opponentActive.stats.hp}
+Moves: ${playerActive.attacks.map((a:any) => `${a.name} (${a.type}, ${a.power} Pwr)`).join(', ')}
+Battle Log Snippet: ${log.slice(-3).join(' | ')}`;
+
+    const response = await ai.models.generateContent({
+        model: 'gemini-3-flash-preview',
+        contents: `You are a professional Pokemon Coach. Given the battle state, tell the player which move to use or if they should switch. Be concise.\n\n${context}`,
+    });
+    return response.text;
 };

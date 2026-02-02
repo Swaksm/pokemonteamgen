@@ -1,3 +1,4 @@
+
 export enum PokemonRarity {
   COMMON = 'Common',
   RARE = 'Rare',
@@ -64,6 +65,7 @@ export interface Pokemon {
   types?: PokemonType[];
   stats?: PokemonStats;
   attacks?: Attack[];
+  lore?: string;
 }
 
 export interface Team {

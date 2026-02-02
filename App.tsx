@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useCallback } from 'react';
 import type { Pokemon, Team } from './types';
 import { PokemonStatus } from './types';
@@ -12,9 +13,10 @@ import TeamCard from './components/TeamCard';
 import Modal from './components/Modal';
 import BattleTab from './components/BattleTab';
 import GameCornerTab from './components/GameCornerTab';
+import ProfessorTab from './components/ProfessorTab';
 import { LoaderIcon, PlusIcon, SparklesIcon, BookUserIcon, ShieldIcon, XIcon, SwordsIcon, TicketIcon } from './components/icons';
 
-type ActiveTab = 'pokedex' | 'teams' | 'battle' | 'gamecorner';
+type ActiveTab = 'pokedex' | 'teams' | 'battle' | 'gamecorner' | 'professor';
 type ModalState = 'none' | 'confirm-resell' | 'confirm-delete-pokemon' | 'create-team' | 'confirm-delete-team';
 
 const App: React.FC = () => {
@@ -127,7 +129,6 @@ const App: React.FC = () => {
     const resellValue = RESELL_VALUES[selectedPokemon.rarity];
     const newTokens = tokens + resellValue;
     const updatedPokemon = { ...selectedPokemon, status: PokemonStatus.SOLD };
-    
     try {
         await db.updatePokemon(updatedPokemon);
         await db.setTokens(newTokens);
@@ -184,9 +185,7 @@ const App: React.FC = () => {
   
   const handleAddPokemonToTeam = async (pokemonId: number, teamId: number) => {
     const team = teams.find(t => t.id === teamId);
-    if (!team || team.pokemonIds.length >= MAX_POKEMON_PER_TEAM || team.pokemonIds.includes(pokemonId)) {
-      return;
-    }
+    if (!team || team.pokemonIds.length >= MAX_POKEMON_PER_TEAM || team.pokemonIds.includes(pokemonId)) return;
     const updatedTeam = { ...team, pokemonIds: [...team.pokemonIds, pokemonId] };
     try {
       await db.updateTeam(updatedTeam);
@@ -216,20 +215,14 @@ const App: React.FC = () => {
             needsUpdate = true;
             const updatedTeam = { ...team, pokemonIds: team.pokemonIds.filter(id => id !== pokemonId) };
             updatedTeams.push(updatedTeam);
-            db.updateTeam(updatedTeam); // Fire and forget update
-        } else {
-            updatedTeams.push(team);
-        }
+            db.updateTeam(updatedTeam);
+        } else updatedTeams.push(team);
     });
-    if (needsUpdate) {
-        setTeams(updatedTeams);
-    }
+    if (needsUpdate) setTeams(updatedTeams);
   };
 
   const renderContent = () => {
-    if (isLoading) {
-      return <div className="text-center p-10"><LoaderIcon className="w-12 h-12 animate-spin mx-auto"/></div>;
-    }
+    if (isLoading) return <div className="text-center p-10"><LoaderIcon className="w-12 h-12 animate-spin mx-auto"/></div>;
 
     if (activeTab === 'pokedex') {
       return (
@@ -263,9 +256,7 @@ const App: React.FC = () => {
                     />
                   ))}
                 </div>
-            ) : (
-                <p className="text-slate-400 text-center py-8">Your Pokémon collection is empty. Generate some!</p>
-            )}
+            ) : <p className="text-slate-400 text-center py-8">Your Pokémon collection is empty. Generate some!</p>}
           </div>
         </>
       );
@@ -276,9 +267,7 @@ const App: React.FC = () => {
             <>
                 <div className="flex justify-between items-center mb-6">
                     <h2 className="text-3xl font-bold">My Teams ({teams.length})</h2>
-                    <Button onClick={() => openModal('create-team')}>
-                        <PlusIcon className="w-5 h-5"/> Create Team
-                    </Button>
+                    <Button onClick={() => openModal('create-team')}><PlusIcon className="w-5 h-5"/> Create Team</Button>
                 </div>
                 {teams.length > 0 ? (
                     <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-6">
@@ -292,32 +281,14 @@ const App: React.FC = () => {
                             />
                         ))}
                     </div>
-                ) : (
-                    <p className="text-slate-400 text-center py-8">You haven't created any teams yet.</p>
-                )}
+                ) : <p className="text-slate-400 text-center py-8">You haven't created any teams yet.</p>}
             </>
         )
     }
 
-    if (activeTab === 'battle') {
-        return (
-            <BattleTab
-                teams={teams}
-                allPokemons={pokemons}
-                updatePokemonInDb={db.updatePokemon}
-                updatePokemonInState={updateSinglePokemonState}
-                setError={setError}
-            />
-        )
-    }
-    
-    if (activeTab === 'gamecorner') {
-        return (
-            <GameCornerTab 
-                onWinTokens={handleUpdateTokens}
-            />
-        )
-    }
+    if (activeTab === 'battle') return <BattleTab teams={teams} allPokemons={pokemons} updatePokemonInDb={db.updatePokemon} updatePokemonInState={updateSinglePokemonState} setError={setError} />;
+    if (activeTab === 'gamecorner') return <GameCornerTab onWinTokens={handleUpdateTokens} />;
+    if (activeTab === 'professor') return <ProfessorTab tokens={tokens} teams={teams} allPokemons={pokemons} onPokemonGenerated={(p) => setPokemons(prev => [p, ...prev])} onUpdateTokens={handleUpdateTokens} />;
   };
 
   return (
@@ -327,23 +298,24 @@ const App: React.FC = () => {
         {error && (
             <div className="bg-red-500/20 border border-red-500 text-red-300 px-4 py-3 rounded-lg relative mb-4" role="alert">
                 <span className="block sm:inline">{error}</span>
-                <button onClick={() => setError(null)} className="absolute top-0 bottom-0 right-0 px-4 py-3">
-                    <XIcon className="w-5 h-5"/>
-                </button>
+                <button onClick={() => setError(null)} className="absolute top-0 bottom-0 right-0 px-4 py-3"><XIcon className="w-5 h-5"/></button>
             </div>
         )}
 
-        <div className="flex space-x-2 border-b border-slate-700 mb-6">
-            <button onClick={() => setActiveTab('pokedex')} className={`flex items-center gap-2 px-4 py-2 font-semibold transition-colors ${activeTab === 'pokedex' ? 'border-b-2 border-poke-yellow text-poke-yellow' : 'text-slate-400 hover:text-white'}`}>
+        <div className="flex space-x-2 border-b border-slate-700 mb-6 overflow-x-auto pb-1 scrollbar-hide">
+            <button onClick={() => setActiveTab('pokedex')} className={`flex items-center gap-2 px-4 py-2 font-semibold transition-colors whitespace-nowrap ${activeTab === 'pokedex' ? 'border-b-2 border-poke-yellow text-poke-yellow' : 'text-slate-400 hover:text-white'}`}>
                 <BookUserIcon className="w-5 h-5"/> Pokédex
             </button>
-            <button onClick={() => setActiveTab('teams')} className={`flex items-center gap-2 px-4 py-2 font-semibold transition-colors ${activeTab === 'teams' ? 'border-b-2 border-poke-yellow text-poke-yellow' : 'text-slate-400 hover:text-white'}`}>
+            <button onClick={() => setActiveTab('professor')} className={`flex items-center gap-2 px-4 py-2 font-semibold transition-colors whitespace-nowrap ${activeTab === 'professor' ? 'border-b-2 border-cyan-400 text-cyan-400' : 'text-slate-400 hover:text-white'}`}>
+                <SparklesIcon className="w-5 h-5"/> Professor
+            </button>
+            <button onClick={() => setActiveTab('teams')} className={`flex items-center gap-2 px-4 py-2 font-semibold transition-colors whitespace-nowrap ${activeTab === 'teams' ? 'border-b-2 border-poke-yellow text-poke-yellow' : 'text-slate-400 hover:text-white'}`}>
                 <ShieldIcon className="w-5 h-5"/> Teams
             </button>
-            <button onClick={() => setActiveTab('battle')} className={`flex items-center gap-2 px-4 py-2 font-semibold transition-colors ${activeTab === 'battle' ? 'border-b-2 border-poke-yellow text-poke-yellow' : 'text-slate-400 hover:text-white'}`}>
+            <button onClick={() => setActiveTab('battle')} className={`flex items-center gap-2 px-4 py-2 font-semibold transition-colors whitespace-nowrap ${activeTab === 'battle' ? 'border-b-2 border-poke-yellow text-poke-yellow' : 'text-slate-400 hover:text-white'}`}>
                 <SwordsIcon className="w-5 h-5"/> Battle
             </button>
-             <button onClick={() => setActiveTab('gamecorner')} className={`flex items-center gap-2 px-4 py-2 font-semibold transition-colors ${activeTab === 'gamecorner' ? 'border-b-2 border-poke-yellow text-poke-yellow' : 'text-slate-400 hover:text-white'}`}>
+             <button onClick={() => setActiveTab('gamecorner')} className={`flex items-center gap-2 px-4 py-2 font-semibold transition-colors whitespace-nowrap ${activeTab === 'gamecorner' ? 'border-b-2 border-poke-yellow text-poke-yellow' : 'text-slate-400 hover:text-white'}`}>
                 <TicketIcon className="w-5 h-5"/> Game Corner
             </button>
         </div>
@@ -351,7 +323,6 @@ const App: React.FC = () => {
         {renderContent()}
       </main>
 
-      {/* Modals */}
       <Modal isOpen={modalState === 'confirm-resell'} onClose={closeModal} title="Confirm Resell">
           <p>Are you sure you want to resell {selectedPokemon?.name} for {selectedPokemon && RESELL_VALUES[selectedPokemon.rarity]} tokens?</p>
           <div className="mt-6 flex justify-end gap-3">
@@ -371,15 +342,7 @@ const App: React.FC = () => {
       <Modal isOpen={modalState === 'create-team'} onClose={closeModal} title="Create New Team">
           <form onSubmit={handleCreateTeam}>
               <label htmlFor="teamName" className="block text-sm font-medium text-slate-300 mb-2">Team Name</label>
-              <input 
-                type="text" 
-                id="teamName" 
-                value={newTeamName}
-                onChange={(e) => setNewTeamName(e.target.value)}
-                className="w-full bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 text-white focus:ring-2 focus:ring-poke-yellow focus:outline-none"
-                placeholder="e.g., Team Rocket"
-                autoFocus
-              />
+              <input type="text" id="teamName" value={newTeamName} onChange={(e) => setNewTeamName(e.target.value)} className="w-full bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 text-white focus:ring-2 focus:ring-poke-yellow focus:outline-none" placeholder="e.g., Team Rocket" autoFocus />
               <div className="mt-6 flex justify-end gap-3">
                   <Button type="button" variant="secondary" onClick={closeModal}>Cancel</Button>
                   <Button type="submit">Create</Button>
@@ -394,7 +357,6 @@ const App: React.FC = () => {
               <Button variant="danger" onClick={handleDeleteTeamConfirm}>Delete Team</Button>
           </div>
       </Modal>
-
     </div>
   );
 };
