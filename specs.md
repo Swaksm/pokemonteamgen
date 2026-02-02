@@ -15,16 +15,17 @@ A Pokémon Team Builder where AI is not just a generator, but a strategic "Profe
 - [x] Local Storage via IndexedDB.
 - [x] Basic AI Generation (Gemini 3 Flash).
 
-### Phase 2: The Laboratory (Current)
+### Phase 2: The Laboratory (Completed)
 - [x] **Task 2.1**: Implement Spec-Driven DNA Lab.
 - [x] **Task 2.2**: Add Lore and Stats generation via JSON schemas.
-- [ ] **Task 2.3**: Create "Synthesis Report" for design verification. (In Progress)
-- [ ] **Task 2.4**: Upgrade Laboratory UI with scanning animations. (In Progress)
+- [x] **Task 2.3**: Create "Synthesis Report" for design verification.
+- [x] **Task 2.4**: Upgrade Laboratory UI with scanning animations.
 
-### Phase 3: Battle Frontier
+### Phase 3: Battle Frontier & Polish
 - [x] AI Battle Advice (Text-based).
-- [ ] **Task 3.1**: Visual Battle HUD (Move Highlighting).
-- [ ] **Task 3.2**: Post-Battle Analysis from the Professor.
+- [x] **Task 3.1**: Visual Battle HUD (Move Highlighting).
+- [x] **Task 3.2**: Game Corner "Token Wheel" Aesthetic Overhaul (Current).
+- [ ] **Task 3.3**: Post-Battle Analysis from the Professor.
 
 ## Technical Standards
 - **Model**: `gemini-3-pro-preview` for complex reasoning (Specs & Analysis).
