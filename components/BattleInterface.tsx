@@ -68,6 +68,7 @@ const BattleInterface: React.FC<BattleInterfaceProps> = ({ playerTeam, opponentT
   const [playerAnim, setPlayerAnim] = useState({ damage: false, attack: false });
   const [opponentAnim, setOpponentAnim] = useState({ damage: false, attack: false });
   const [advice, setAdvice] = useState<string | null>(null);
+  const [recommendedMoveName, setRecommendedMoveName] = useState<string | null>(null);
   const [isGettingAdvice, setIsGettingAdvice] = useState(false);
 
   const logContainerRef = useRef<HTMLDivElement>(null);
@@ -88,9 +89,6 @@ const BattleInterface: React.FC<BattleInterfaceProps> = ({ playerTeam, opponentT
     const randomMultiplier = Math.random() * (1 - 0.85) + 0.85;
     const baseDamage = (( (2/5 + 2) * move.power * (attackStat / defenseStat) ) / 50) + 2;
     const finalDamage = Math.floor(baseDamage * stabMultiplier * typeMultiplier * randomMultiplier);
-    if (typeMultiplier > 1) addLog("It's super effective!");
-    else if (typeMultiplier < 1 && typeMultiplier > 0) addLog("It's not very effective...");
-    else if (typeMultiplier === 0) addLog("It had no effect!");
     return finalDamage;
   };
 
@@ -109,6 +107,8 @@ const BattleInterface: React.FC<BattleInterfaceProps> = ({ playerTeam, opponentT
     setTurnState('processing');
     setActionView('main');
     setAdvice(null);
+    setRecommendedMoveName(null);
+    
     const opponentMove = opponentActive.attacks[Math.floor(Math.random() * opponentActive.attacks.length)];
     const opponentAction = { type: 'attack', move: opponentMove } as const;
     const playerGoesFirst = playerAction.type === 'switch' || (playerAction.type === 'attack' && playerActive.stats.speed >= opponentActive.stats.speed);
@@ -155,7 +155,6 @@ const BattleInterface: React.FC<BattleInterfaceProps> = ({ playerTeam, opponentT
             if (remaining.length === 0) {
               const winner = turn.actor === 'player' ? 'victory' : 'defeat';
               setOutcome(winner);
-              addLog(winner === 'victory' ? "You are victorious!" : "You have been defeated!");
               setTurnState('ended');
               battleEnded = true;
             } else {
@@ -196,10 +195,11 @@ const BattleInterface: React.FC<BattleInterfaceProps> = ({ playerTeam, opponentT
   const handleGetAdvice = async () => {
       setIsGettingAdvice(true);
       try {
-          const text = await api.getBattleAdvice(playerActive, opponentActive, battleLog);
-          setAdvice(text);
+          const result = await api.getBattleAdvice(playerActive, opponentActive, battleLog);
+          setAdvice(result.advice);
+          setRecommendedMoveName(result.recommendedMove);
       } catch (e) {
-          setAdvice("No tactical advice available.");
+          setAdvice("Professor is analyzing data...");
       } finally {
           setIsGettingAdvice(false);
       }
@@ -207,32 +207,46 @@ const BattleInterface: React.FC<BattleInterfaceProps> = ({ playerTeam, opponentT
 
   const renderPokemonDisplay = (pokemon: BattlePokemon, isOpponent: boolean) => (
     <div className={`absolute w-1/2 md:w-1/3 max-w-xs ${isOpponent ? 'top-4 right-4 text-right' : 'bottom-[210px] left-4'}`}>
-        <div className="p-2 bg-slate-800/80 rounded-lg border border-slate-700 mb-2 inline-block">
+        <div className="p-3 bg-slate-800/90 rounded-2xl border border-slate-700 shadow-xl mb-3 inline-block min-w-[180px]">
             <HealthBar currentHp={pokemon.currentHp} maxHp={pokemon.stats.hp} label={pokemon.name} />
-            <div className={`flex gap-1 mt-1 ${isOpponent ? 'justify-end' : 'justify-start'}`}>
+            <div className={`flex gap-1 mt-2 ${isOpponent ? 'justify-end' : 'justify-start'}`}>
                 {pokemon.types.map(type => <TypeBadge key={type} type={type} />)}
             </div>
         </div>
-        <div className={`relative h-32 md:h-40 ${isOpponent ? 'mr-4' : 'ml-4'}`}>
-            <img src={pokemon.imageUrl} alt={pokemon.name} className={`absolute inset-0 h-full w-full object-contain drop-shadow-lg transition-transform duration-300 ${((isOpponent && opponentAnim.damage) || (!isOpponent && playerAnim.damage)) ? 'animate-pulse-fast' : ''} ${((isOpponent && opponentAnim.attack) || (!isOpponent && playerAnim.attack)) ? (isOpponent ? 'translate-x-[-20px]' : 'translate-x-[20px]') : ''} ${pokemon.currentHp <= 0 ? 'opacity-50 grayscale' : ''}`} />
+        <div className={`relative h-40 md:h-52 ${isOpponent ? 'mr-4' : 'ml-4'}`}>
+            <img 
+              src={pokemon.imageUrl} 
+              alt={pokemon.name} 
+              className={`absolute inset-0 h-full w-full object-contain drop-shadow-[0_0_20px_rgba(0,0,0,0.5)] transition-all duration-300 ${((isOpponent && opponentAnim.damage) || (!isOpponent && playerAnim.damage)) ? 'animate-pulse scale-95 brightness-150' : ''} ${((isOpponent && opponentAnim.attack) || (!isOpponent && playerAnim.attack)) ? (isOpponent ? 'translate-x-[-30px] scale-110' : 'translate-x-[30px] scale-110') : ''} ${pokemon.currentHp <= 0 ? 'opacity-0 translate-y-10 scale-50 rotate-12' : 'opacity-100'}`} 
+            />
         </div>
     </div>
   );
   
   const renderActionPanel = () => {
-    if (turnState === 'processing') return <div className="flex items-center justify-center h-full"><LoaderIcon className="w-8 h-8 animate-spin text-poke-yellow" /></div>;
-    if (turnState !== 'player_input') return <div className="flex items-center justify-center h-full"><p className="text-slate-400">...</p></div>;
+    if (turnState === 'processing') return <div className="flex flex-col items-center justify-center h-full gap-2"><LoaderIcon className="w-10 h-10 animate-spin text-cyan-400" /><span className="text-xs font-mono text-cyan-600 animate-pulse">PROCESSING...</span></div>;
+    if (turnState !== 'player_input') return <div className="flex items-center justify-center h-full"><p className="text-slate-500 font-mono italic">Turn Cycle Complete</p></div>;
 
     if (actionView === 'fight') {
         return (
-            <div className="grid grid-cols-2 gap-2 h-full">
-                {playerActive.attacks.map(attack => (
-                    <Button key={attack.name} onClick={() => processTurn({ type: 'attack', move: attack })} className="flex-col !gap-0 !items-start !text-left p-2">
-                        <div>{attack.name}</div>
-                        <div className="text-xs opacity-80 flex items-center gap-2"><TypeBadge type={attack.type} small /> <span>{attack.power} Pwr</span></div>
-                    </Button>
-                ))}
-                <Button variant="ghost" onClick={() => setActionView('main')} className="col-span-2"><ChevronLeftIcon className="w-4 h-4" /> Back</Button>
+            <div className="grid grid-cols-2 gap-3 h-full">
+                {playerActive.attacks.map(attack => {
+                    const isRecommended = recommendedMoveName?.toLowerCase() === attack.name.toLowerCase();
+                    return (
+                        <Button 
+                          key={attack.name} 
+                          onClick={() => processTurn({ type: 'attack', move: attack })} 
+                          className={`flex-col !gap-0 !items-start !text-left p-3 border-2 transition-all ${isRecommended ? 'border-cyan-400 shadow-[0_0_15px_rgba(34,211,238,0.4)] bg-cyan-900/20' : 'border-transparent'}`}
+                        >
+                            <div className="flex items-center justify-between w-full">
+                              <span className="font-bold">{attack.name}</span>
+                              {isRecommended && <SparklesIcon className="w-4 h-4 text-cyan-400 animate-pulse" />}
+                            </div>
+                            <div className="text-xs opacity-80 flex items-center gap-2 mt-1"><TypeBadge type={attack.type} small /> <span>{attack.power} Pwr</span></div>
+                        </Button>
+                    );
+                })}
+                <Button variant="ghost" onClick={() => setActionView('main')} className="col-span-2 text-xs uppercase tracking-widest"><ChevronLeftIcon className="w-4 h-4" /> Return</Button>
             </div>
         );
     }
@@ -241,51 +255,66 @@ const BattleInterface: React.FC<BattleInterfaceProps> = ({ playerTeam, opponentT
             <div className="grid grid-cols-2 gap-2 h-full overflow-y-auto">
                 {playerParty.map(p => (
                     <Button key={p.id} variant="secondary" onClick={() => handlePlayerSwitch(p)} disabled={p.currentHp <= 0 || p.id === playerActive.id}>
-                    {p.name} ({p.currentHp > 0 ? `${p.currentHp} HP` : 'Fainted'})
+                    {p.name} ({p.currentHp > 0 ? `${p.currentHp} HP` : 'KO'})
                     </button>
                 ))}
-                {!isForcedSwitch && <Button variant="ghost" onClick={() => setActionView('main')} className="col-span-2"><ChevronLeftIcon className="w-4 h-4" /> Back</Button>}
+                {!isForcedSwitch && <Button variant="ghost" onClick={() => setActionView('main')} className="col-span-2"><ChevronLeftIcon className="w-4 h-4" /> Return</Button>}
             </div>
         );
     }
     return (
-        <div className="grid grid-cols-2 gap-2 h-full">
-            <Button onClick={() => setActionView('fight')} className="h-full text-xl">Fight</Button>
-            <Button variant="secondary" onClick={() => setActionView('pokemon')} className="h-full text-xl">Pokémon</Button>
-            <Button variant="ghost" onClick={handleGetAdvice} disabled={isGettingAdvice} className="col-span-2 text-cyan-400 border border-cyan-500/30">
+        <div className="grid grid-cols-2 gap-3 h-full">
+            <Button onClick={() => setActionView('fight')} className="h-full text-2xl font-black italic bg-gradient-to-br from-poke-red to-red-800 text-white border-b-4 border-red-900 hover:scale-105 active:scale-95 transition-transform">FIGHT</Button>
+            <Button variant="secondary" onClick={() => setActionView('pokemon')} className="h-full text-xl font-bold bg-slate-700">PARTY</Button>
+            <Button 
+                variant="ghost" 
+                onClick={handleGetAdvice} 
+                disabled={isGettingAdvice} 
+                className="col-span-2 bg-cyan-900/10 border border-cyan-500/30 text-cyan-400 font-mono text-xs uppercase tracking-tighter"
+            >
                 {isGettingAdvice ? <LoaderIcon className="animate-spin w-4 h-4" /> : <SparklesIcon className="w-4 h-4" />}
-                Ask Professor
+                Sync with Professor
             </Button>
         </div>
     );
   };
 
   return (
-    <div className="bg-slate-900/50 rounded-lg border-2 border-slate-700 relative overflow-hidden" style={{ height: '75vh', minHeight: '550px' }}>
-      {/* Professor Advice HUD */}
+    <div className="bg-slate-950 rounded-3xl border-4 border-slate-800 relative overflow-hidden shadow-2xl" style={{ height: '75vh', minHeight: '600px' }}>
+      {/* HUD Background elements */}
+      <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_50%,_rgba(15,23,42,1)_0%,_rgba(2,6,23,1)_100%)]" />
+      <div className="absolute top-0 left-0 w-full h-full opacity-5 pointer-events-none" style={{ backgroundImage: 'linear-gradient(#fff 1px, transparent 1px), linear-gradient(90deg, #fff 1px, transparent 1px)', backgroundSize: '40px 40px' }} />
+
+      {/* Professor Advice Overlay */}
       {advice && (
-          <div className="absolute top-20 left-1/2 -translate-x-1/2 z-30 bg-cyan-900/80 backdrop-blur-md border border-cyan-500 p-4 rounded-xl shadow-xl w-3/4 max-w-lg animate-fade-in">
-              <div className="flex justify-between items-start mb-2">
-                <h4 className="text-cyan-400 font-bold uppercase text-xs flex items-center gap-2"><SparklesIcon className="w-3 h-3"/> Tactical Advice:</h4>
-                <button onClick={() => setAdvice(null)} className="text-white/50 hover:text-white">&times;</button>
+          <div className="absolute top-24 left-1/2 -translate-x-1/2 z-40 bg-black/80 backdrop-blur-xl border border-cyan-500/50 p-5 rounded-2xl shadow-[0_0_30px_rgba(6,182,212,0.2)] w-5/6 max-w-md animate-fade-in">
+              <div className="flex justify-between items-center mb-3">
+                <h4 className="text-cyan-400 font-black uppercase text-xs flex items-center gap-2 tracking-widest"><SparklesIcon className="w-3 h-3"/> COACHING UPLINK</h4>
+                <button onClick={() => setAdvice(null)} className="text-white/40 hover:text-white transition-colors">&times;</button>
               </div>
-              <p className="text-sm text-cyan-100 italic">{advice}</p>
+              <p className="text-sm text-cyan-100 leading-relaxed font-mono italic">{advice}</p>
           </div>
       )}
 
-      <div className="absolute top-4 left-4 w-1/3 z-10"><PartyStatus party={opponentParty} /></div>
+      {/* Battle Entities */}
+      <div className="absolute top-8 left-8 w-1/3 z-20"><PartyStatus party={opponentParty} /></div>
       {renderPokemonDisplay(opponentActive, true)}
-      <div className="absolute bottom-[210px] right-4 w-1/3 z-10"><PartyStatus party={playerParty} isOpponent/></div>
+      <div className="absolute bottom-[230px] right-8 w-1/3 z-20"><PartyStatus party={playerParty} isOpponent/></div>
       {renderPokemonDisplay(playerActive, false)}
-      <div className="absolute bottom-0 left-0 right-0 h-[200px] bg-slate-800 border-t-4 border-slate-600 p-4 grid grid-cols-2 gap-4">
-        <div ref={logContainerRef} className="bg-slate-900 rounded-md p-2 text-sm font-mono overflow-y-auto border border-slate-700 h-full">
-            {battleLog.map((msg, i) => <p key={i} className="py-1 animate-fade-in">{msg}</p>)}
+
+      {/* Command Center */}
+      <div className="absolute bottom-0 left-0 right-0 h-[220px] bg-slate-900/90 backdrop-blur-md border-t-2 border-slate-700 p-6 flex gap-6">
+        <div ref={logContainerRef} className="flex-1 bg-black/60 rounded-xl p-4 text-xs font-mono overflow-y-auto border border-slate-800 scrollbar-hide text-slate-300">
+            {battleLog.map((msg, i) => <p key={i} className="py-1 border-b border-slate-800/50 opacity-80 animate-fade-in">{`> ${msg}`}</p>)}
         </div>
-        <div className="h-full">{renderActionPanel()}</div>
+        <div className="w-2/5 h-full">{renderActionPanel()}</div>
       </div>
-      <Modal isOpen={!!outcome} onClose={() => {}} title={outcome === 'victory' ? 'Victory!' : 'Defeat!'}>
-        <p className="text-center mb-6">{outcome === 'victory' ? "Congratulations! You won the battle." : "Your team fought bravely but was defeated."}</p>
-        <Button onClick={onBattleEnd} className="w-full">Back to Team Selection</Button>
+
+      <Modal isOpen={!!outcome} onClose={() => {}} title={outcome === 'victory' ? 'VICTORY' : 'DEFEAT'}>
+        <div className="text-center p-4">
+          <p className="mb-8 text-slate-300 font-mono tracking-tight">{outcome === 'victory' ? "Enemy forces neutralized. Team performance: OPTIMAL." : "Team critical failure. Strategic retreat initiated."}</p>
+          <Button onClick={onBattleEnd} className="w-full bg-poke-yellow text-slate-900 font-black italic">RETURN TO HQ</Button>
+        </div>
       </Modal>
     </div>
   );

@@ -4,10 +4,6 @@ import { PokemonRarity, PokemonType, AttackCategory, type Pokemon, type Attack, 
 
 const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
 
-const rarityValues = Object.values(PokemonRarity).join(', ');
-const typeValues = Object.values(PokemonType).join(', ');
-const categoryValues = Object.values(AttackCategory).filter(c => c !== AttackCategory.STATUS).join(', ');
-
 const STATS_SCHEMA = {
     type: Type.OBJECT,
     properties: {
@@ -45,9 +41,13 @@ const POKEMON_SCHEMA = {
         imagePrompt: { type: Type.STRING },
         stats: STATS_SCHEMA,
         attacks: ATTACKS_SCHEMA,
-        lore: { type: Type.STRING, description: "A creative 2-sentence Pokedex entry." }
+        lore: { type: Type.STRING },
+        synthesisReport: { 
+          type: Type.STRING, 
+          description: "An explanation of how the generated stats/types match the user's input specification." 
+        }
     },
-    required: ["name", "rarity", "types", "imagePrompt", "stats", "attacks", "lore"]
+    required: ["name", "rarity", "types", "imagePrompt", "stats", "attacks", "lore", "synthesisReport"]
 };
 
 async function generatePokemonImage(prompt: string): Promise<string> {
@@ -64,34 +64,11 @@ async function generatePokemonImage(prompt: string): Promise<string> {
   throw new Error("Image generation failed");
 }
 
-// Fix: Added missing generateStatsForPokemon function to populate stats and attacks for existing Pokemon
-export const generateStatsForPokemon = async (name: string, rarity: PokemonRarity): Promise<{ stats: PokemonStats; attacks: Attack[]; types: PokemonType[]; lore: string }> => {
-  const response = await ai.models.generateContent({
-    model: 'gemini-3-flash-preview',
-    contents: `Generate detailed RPG stats, types, and 4 attacks for a Pokemon named "${name}" with rarity "${rarity}".`,
-    config: {
-      responseMimeType: "application/json",
-      responseSchema: {
-        type: Type.OBJECT,
-        properties: {
-          types: { type: Type.ARRAY, items: { type: Type.STRING } },
-          stats: STATS_SCHEMA,
-          attacks: ATTACKS_SCHEMA,
-          lore: { type: Type.STRING }
-        },
-        required: ["types", "stats", "attacks", "lore"]
-      },
-    },
-  });
-
-  return JSON.parse(response.text);
-};
-
 export const generatePokemon = async (spec?: string): Promise<Omit<Pokemon, 'id' | 'status'>> => {
   const model = spec ? 'gemini-3-pro-preview' : 'gemini-3-flash-preview';
   const prompt = spec 
-    ? `Create a unique Pokemon based on this specification: "${spec}". Ensure the stats, types, and moves reflect the description accurately.`
-    : `Generate a new, unique, and creative Pokémon.`;
+    ? `Create a unique Pokemon based on this specification: "${spec}". Provide a synthesisReport explaining your logic.`
+    : `Generate a new, unique, and creative Pokémon. Provide a synthesisReport explaining your logic.`;
 
   const response = await ai.models.generateContent({
     model,
@@ -113,14 +90,69 @@ export const generatePokemon = async (spec?: string): Promise<Omit<Pokemon, 'id'
     types: raw.types.slice(0, 2),
     stats: raw.stats,
     attacks: raw.attacks,
-    lore: raw.lore
+    lore: raw.lore,
+    synthesisReport: raw.synthesisReport
   };
+};
+
+export const analyzeTeamSynergy = async (teamPokemons: Pokemon[]): Promise<string> => {
+  const teamContext = teamPokemons.map(p => `${p.name} (${p.types?.join('/')})`).join('\n');
+  const response = await ai.models.generateContent({
+    model: 'gemini-3-pro-preview',
+    contents: `Analyze this Pokemon team and provide a brief strategic report.\n\nTeam:\n${teamContext}`,
+  });
+  return response.text;
+};
+
+export const getBattleAdvice = async (playerActive: any, opponentActive: any, log: string[]): Promise<{ advice: string, recommendedMove: string }> => {
+    const context = `Your Pokemon: ${playerActive.name} (${playerActive.types.join('/')})
+Opponent: ${opponentActive.name} (${opponentActive.types.join('/')})
+Moves available: ${playerActive.attacks.map((a:any) => a.name).join(', ')}`;
+
+    const response = await ai.models.generateContent({
+        model: 'gemini-3-flash-preview',
+        contents: `You are a professional Pokemon Coach. Suggest the best move and why.\n\n${context}`,
+        config: {
+          responseMimeType: "application/json",
+          responseSchema: {
+            type: Type.OBJECT,
+            properties: {
+              advice: { type: Type.STRING },
+              recommendedMove: { type: Type.STRING, description: "The exact name of the move to use." }
+            },
+            required: ["advice", "recommendedMove"]
+          }
+        }
+    });
+    return JSON.parse(response.text);
+};
+
+export const generateStatsForPokemon = async (name: string, rarity: PokemonRarity): Promise<{ stats: PokemonStats; attacks: Attack[]; types: PokemonType[]; lore: string }> => {
+  const response = await ai.models.generateContent({
+    model: 'gemini-3-flash-preview',
+    contents: `Generate stats for ${name} (${rarity}).`,
+    config: {
+      responseMimeType: "application/json",
+      responseSchema: {
+        type: Type.OBJECT,
+        properties: {
+          types: { type: Type.ARRAY, items: { type: Type.STRING } },
+          stats: STATS_SCHEMA,
+          attacks: ATTACKS_SCHEMA,
+          lore: { type: Type.STRING }
+        },
+        required: ["types", "stats", "attacks", "lore"]
+      },
+    },
+  });
+
+  return JSON.parse(response.text);
 };
 
 export const generateTeamOfPokemon = async (): Promise<Omit<Pokemon, 'id' | 'status'>[]> => {
   const response = await ai.models.generateContent({
     model: 'gemini-3-flash-preview',
-    contents: `Generate an array of 6 unique Pokemon.`,
+    contents: `Generate 6 unique Pokemon.`,
     config: {
       responseMimeType: "application/json",
       responseSchema: { type: Type.ARRAY, items: POKEMON_SCHEMA },
@@ -138,29 +170,8 @@ export const generateTeamOfPokemon = async (): Promise<Omit<Pokemon, 'id' | 'sta
       types: raw.types,
       stats: raw.stats,
       attacks: raw.attacks,
-      lore: raw.lore
+      lore: raw.lore,
+      synthesisReport: raw.synthesisReport
     };
   }));
-};
-
-export const analyzeTeamSynergy = async (teamPokemons: Pokemon[]): Promise<string> => {
-  const teamContext = teamPokemons.map(p => `${p.name} (${p.types?.join('/')}) - Stats: ${JSON.stringify(p.stats)}`).join('\n');
-  const response = await ai.models.generateContent({
-    model: 'gemini-3-pro-preview',
-    contents: `As a Pokemon Professor, analyze this team and provide a brief strategic report (max 150 words). Identify weaknesses and suggest a type or role to add.\n\nTeam:\n${teamContext}`,
-  });
-  return response.text;
-};
-
-export const getBattleAdvice = async (playerActive: any, opponentActive: any, log: string[]): Promise<string> => {
-    const context = `Your Pokemon: ${playerActive.name} (${playerActive.types.join('/')}) HP: ${playerActive.currentHp}/${playerActive.stats.hp}
-Opponent: ${opponentActive.name} (${opponentActive.types.join('/')}) HP: ${opponentActive.currentHp}/${opponentActive.stats.hp}
-Moves: ${playerActive.attacks.map((a:any) => `${a.name} (${a.type}, ${a.power} Pwr)`).join(', ')}
-Battle Log Snippet: ${log.slice(-3).join(' | ')}`;
-
-    const response = await ai.models.generateContent({
-        model: 'gemini-3-flash-preview',
-        contents: `You are a professional Pokemon Coach. Given the battle state, tell the player which move to use or if they should switch. Be concise.\n\n${context}`,
-    });
-    return response.text;
 };

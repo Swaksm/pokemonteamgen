@@ -66,6 +66,7 @@ export interface Pokemon {
   stats?: PokemonStats;
   attacks?: Attack[];
   lore?: string;
+  synthesisReport?: string; // New: Verification details from the Professor
 }
 
 export interface Team {
