@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import type { Pokemon, Team } from '../types';
 import Button from './Button';
@@ -12,9 +13,10 @@ interface BattleTabProps {
   updatePokemonInDb: (pokemon: Pokemon) => Promise<void>;
   updatePokemonInState: (pokemon: Pokemon) => void;
   setError: (message: string | null) => void;
+  onVictory?: () => void;
 }
 
-const BattleTab: React.FC<BattleTabProps> = ({ teams, allPokemons, updatePokemonInDb, updatePokemonInState, setError }) => {
+const BattleTab: React.FC<BattleTabProps> = ({ teams, allPokemons, updatePokemonInDb, updatePokemonInState, setError, onVictory }) => {
   const [view, setView] = useState<'selection' | 'generating' | 'battle'>('selection');
   const [playerTeam, setPlayerTeam] = useState<Pokemon[]>([]);
   const [opponentTeam, setOpponentTeam] = useState<Pokemon[]>([]);
@@ -44,7 +46,6 @@ const BattleTab: React.FC<BattleTabProps> = ({ teams, allPokemons, updatePokemon
 
       // 2. Generate Opponent Team
       const generatedOpponents = await api.generateTeamOfPokemon();
-      // We need to give them temporary IDs for key props in React
       const opponentTeamWithIds = generatedOpponents.map((p, i) => ({ ...p, id: -1 - i, status: 'Stored' })) as Pokemon[];
       setOpponentTeam(opponentTeamWithIds);
 
@@ -57,7 +58,14 @@ const BattleTab: React.FC<BattleTabProps> = ({ teams, allPokemons, updatePokemon
   };
 
   if (view === 'battle') {
-    return <BattleInterface playerTeam={playerTeam} opponentTeam={opponentTeam} onBattleEnd={() => setView('selection')} />;
+    return (
+      <BattleInterface 
+        playerTeam={playerTeam} 
+        opponentTeam={opponentTeam} 
+        onBattleEnd={() => setView('selection')} 
+        onVictory={onVictory}
+      />
+    );
   }
   
   if (view === 'generating') {

@@ -15,6 +15,7 @@ interface BattleInterfaceProps {
   playerTeam: Pokemon[];
   opponentTeam: Pokemon[];
   onBattleEnd: () => void;
+  onVictory?: () => void;
 }
 
 type BattlePokemon = Pokemon & { 
@@ -43,7 +44,7 @@ const sanitizePokemonForBattle = (pokemon: Pokemon): BattlePokemon => {
     return { ...pokemon, stats, types, attacks: attacks.slice(0, 4), currentHp: stats.hp };
 };
 
-const BattleInterface: React.FC<BattleInterfaceProps> = ({ playerTeam, opponentTeam, onBattleEnd }) => {
+const BattleInterface: React.FC<BattleInterfaceProps> = ({ playerTeam, opponentTeam, onBattleEnd, onVictory }) => {
   const [initialState] = useState(() => {
     const pParty = playerTeam.map(sanitizePokemonForBattle);
     const oParty = opponentTeam.map(sanitizePokemonForBattle);
@@ -157,6 +158,7 @@ const BattleInterface: React.FC<BattleInterfaceProps> = ({ playerTeam, opponentT
               setOutcome(winner);
               setTurnState('ended');
               battleEnded = true;
+              if (winner === 'victory' && onVictory) onVictory();
             } else {
                 if (turn.actor === 'player') {
                     const nextOpponent = remaining.find(p => p.currentHp > 0)!;

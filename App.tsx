@@ -1,7 +1,7 @@
-
 import React, { useState, useEffect, useCallback } from 'react';
-import type { Pokemon, Team } from './types';
-import { PokemonStatus } from './types';
+import type { Pokemon, Team, Mission } from './types';
+// Fixed: Import PokemonType as a value to use it with Object.values()
+import { PokemonStatus, PokemonType } from './types';
 import * as db from './services/indexedDbService';
 import * as api from './services/pokemonApiService';
 import { GENERATE_COST, RESELL_VALUES, MAX_POKEMON_PER_TEAM } from './constants';
@@ -14,6 +14,7 @@ import Modal from './components/Modal';
 import BattleTab from './components/BattleTab';
 import GameCornerTab from './components/GameCornerTab';
 import ProfessorTab from './components/ProfessorTab';
+import MissionCenter from './components/MissionCenter';
 import { LoaderIcon, PlusIcon, SparklesIcon, BookUserIcon, ShieldIcon, XIcon, SwordsIcon, TicketIcon } from './components/icons';
 
 type ActiveTab = 'pokedex' | 'teams' | 'battle' | 'gamecorner' | 'professor';
@@ -23,6 +24,7 @@ const App: React.FC = () => {
   const [tokens, setTokens] = useState<number>(0);
   const [pokemons, setPokemons] = useState<Pokemon[]>([]);
   const [teams, setTeams] = useState<Team[]>([]);
+  const [missions, setMissions] = useState<Mission[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isGenerating, setIsGenerating] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -33,24 +35,104 @@ const App: React.FC = () => {
   const [selectedTeam, setSelectedTeam] = useState<Team | null>(null);
   const [newTeamName, setNewTeamName] = useState('');
 
+  const refreshMissions = useCallback(async () => {
+    // Fixed: Use PokemonType directly from imports as it's not exported from the api service
+    const types: PokemonType[] = Object.values(PokemonType) as PokemonType[];
+    const randomType = types[Math.floor(Math.random() * types.length)];
+    
+    const newMissions: Mission[] = [
+      {
+        id: 'm1',
+        description: 'Generate new specimens in the Lab.',
+        type: 'collect',
+        target: 3,
+        current: 0,
+        reward: 30,
+        completed: false,
+        claimed: false
+      },
+      {
+        id: 'm2',
+        description: `Synthesize a Pokémon with this elemental affinity:`,
+        type: 'type-collect',
+        target: 1,
+        current: 0,
+        reward: 50,
+        completed: false,
+        claimed: false,
+        targetType: randomType
+      },
+      {
+        id: 'm3',
+        description: 'Win tactical simulations in the Battle Frontier.',
+        type: 'battle',
+        target: 2,
+        current: 0,
+        reward: 60,
+        completed: false,
+        claimed: false
+      }
+    ];
+    await db.saveMissions(newMissions);
+    await db.setLastMissionRefresh(Date.now());
+    setMissions(newMissions);
+  }, []);
+
+  const trackProgress = useCallback(async (type: Mission['type'], amount: number = 1, metadata?: any) => {
+    const updatedMissions = missions.map(m => {
+      if (m.claimed) return m;
+      let match = false;
+      if (m.type === type) {
+        if (type === 'type-collect' && metadata?.types) {
+          match = metadata.types.includes(m.targetType);
+        } else {
+          match = true;
+        }
+      }
+
+      if (match) {
+        const nextCount = m.current + amount;
+        return {
+          ...m,
+          current: nextCount,
+          completed: nextCount >= m.target
+        };
+      }
+      return m;
+    });
+
+    setMissions(updatedMissions);
+    await db.saveMissions(updatedMissions);
+  }, [missions]);
+
   const loadInitialData = useCallback(async () => {
     try {
       setIsLoading(true);
-      const [initialTokens, initialPokemons, initialTeams] = await Promise.all([
+      const [initialTokens, initialPokemons, initialTeams, initialMissions, lastRefresh] = await Promise.all([
         db.getTokens(),
         db.getAllPokemons(),
         db.getAllTeams(),
+        db.getMissions(),
+        db.getLastMissionRefresh()
       ]);
+      
       setTokens(initialTokens);
       setPokemons(initialPokemons);
       setTeams(initialTeams);
+
+      const oneDay = 24 * 60 * 60 * 1000;
+      if (Date.now() - lastRefresh > oneDay || initialMissions.length === 0) {
+        await refreshMissions();
+      } else {
+        setMissions(initialMissions);
+      }
     } catch (e) {
-      setError('Failed to load data from your browser. Please refresh the page.');
+      setError('Failed to load data from your browser.');
       console.error(e);
     } finally {
       setIsLoading(false);
     }
-  }, []);
+  }, [refreshMissions]);
 
   useEffect(() => {
     loadInitialData();
@@ -70,6 +152,11 @@ const App: React.FC = () => {
       await db.setTokens(newTokens);
       setTokens(newTokens);
       setPokemons(prev => [newPokemon, ...prev]);
+
+      // Track Mission Progress
+      trackProgress('collect', 1);
+      if (newPokemon.types) trackProgress('type-collect', 1, { types: newPokemon.types });
+      
     } catch (e) {
       setError(e instanceof Error ? e.message : 'An unknown error occurred.');
     } finally {
@@ -93,11 +180,27 @@ const App: React.FC = () => {
       await db.setTokens(newTokens);
       setTokens(newTokens);
       setPokemons(prev => [...newPokemons, ...prev]);
+
+      // Track Mission Progress
+      trackProgress('collect', 6);
+      newPokemons.forEach(p => {
+        if (p.types) trackProgress('type-collect', 1, { types: p.types });
+      });
+
     } catch (e) {
       setError(e instanceof Error ? e.message : 'An unknown error occurred.');
     } finally {
       setIsGenerating(false);
     }
+  };
+
+  const handleClaimMission = async (mission: Mission) => {
+    if (!mission.completed || mission.claimed) return;
+    const newTokens = tokens + mission.reward;
+    const updatedMissions = missions.map(m => m.id === mission.id ? { ...m, claimed: true } : m);
+    setMissions(updatedMissions);
+    await db.saveMissions(updatedMissions);
+    await handleUpdateTokens(mission.reward);
   };
 
   const updateSinglePokemonState = (updatedPokemon: Pokemon) => {
@@ -135,6 +238,7 @@ const App: React.FC = () => {
         setTokens(newTokens);
         setPokemons(prev => prev.filter(p => p.id !== selectedPokemon.id));
         handlePokemonRemovalFromTeams(selectedPokemon.id);
+        trackProgress('sell', 1);
     } catch (e) {
         setError('Failed to resell Pokémon.');
     } finally {
@@ -227,6 +331,8 @@ const App: React.FC = () => {
     if (activeTab === 'pokedex') {
       return (
         <>
+          <MissionCenter missions={missions} onClaim={handleClaimMission} />
+          
           <div className="bg-slate-800/50 p-6 rounded-lg border border-slate-700 text-center">
             <h2 className="text-2xl font-bold mb-2">Generate New Pokémon!</h2>
             <p className="text-slate-400 mb-4">Generate a single Pokémon for {GENERATE_COST} tokens or a whole team of six.</p>
@@ -286,9 +392,9 @@ const App: React.FC = () => {
         )
     }
 
-    if (activeTab === 'battle') return <BattleTab teams={teams} allPokemons={pokemons} updatePokemonInDb={db.updatePokemon} updatePokemonInState={updateSinglePokemonState} setError={setError} />;
+    if (activeTab === 'battle') return <BattleTab teams={teams} allPokemons={pokemons} updatePokemonInDb={db.updatePokemon} updatePokemonInState={updateSinglePokemonState} setError={setError} onVictory={() => trackProgress('battle', 1)} />;
     if (activeTab === 'gamecorner') return <GameCornerTab onWinTokens={handleUpdateTokens} />;
-    if (activeTab === 'professor') return <ProfessorTab tokens={tokens} teams={teams} allPokemons={pokemons} onPokemonGenerated={(p) => setPokemons(prev => [p, ...prev])} onUpdateTokens={handleUpdateTokens} />;
+    if (activeTab === 'professor') return <ProfessorTab tokens={tokens} teams={teams} allPokemons={pokemons} onPokemonGenerated={(p) => { setPokemons(prev => [p, ...prev]); trackProgress('collect', 1); if (p.types) trackProgress('type-collect', 1, { types: p.types }); }} onUpdateTokens={handleUpdateTokens} />;
   };
 
   return (

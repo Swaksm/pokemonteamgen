@@ -1,12 +1,15 @@
+
 import { PokemonRarity, PokemonType } from './types';
 
 export const DB_NAME = 'PokemonDB';
-export const DB_VERSION = 1;
+export const DB_VERSION = 2; // Incremented version for new store
 export const POKEMONS_STORE = 'pokemons';
 export const TEAMS_STORE = 'teams';
+export const MISSIONS_STORE = 'missions';
 export const SETTINGS_STORE = 'settings';
 export const TOKEN_BALANCE_KEY = 'tokenBalance';
 export const LAST_SPIN_TIME_KEY = 'lastSpinTime';
+export const LAST_MISSION_REFRESH_KEY = 'lastMissionRefresh';
 
 export const INITIAL_TOKENS = 100;
 export const GENERATE_COST = 10;

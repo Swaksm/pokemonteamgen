@@ -66,13 +66,25 @@ export interface Pokemon {
   stats?: PokemonStats;
   attacks?: Attack[];
   lore?: string;
-  synthesisReport?: string; // New: Verification details from the Professor
+  synthesisReport?: string;
 }
 
 export interface Team {
   id: number;
   name: string;
   pokemonIds: number[];
+}
+
+export interface Mission {
+  id: string;
+  description: string;
+  type: 'collect' | 'type-collect' | 'battle' | 'sell';
+  target: number;
+  current: number;
+  reward: number;
+  completed: boolean;
+  claimed: boolean;
+  targetType?: PokemonType;
 }
 
 export interface TokenBalance {

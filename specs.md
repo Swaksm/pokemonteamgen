@@ -21,11 +21,16 @@ A Pokémon Team Builder where AI is not just a generator, but a strategic "Profe
 - [x] **Task 2.3**: Create "Synthesis Report" for design verification.
 - [x] **Task 2.4**: Upgrade Laboratory UI with scanning animations.
 
-### Phase 3: Battle Frontier & Polish
+### Phase 3: Battle Frontier & Polish (Completed)
 - [x] AI Battle Advice (Text-based).
 - [x] **Task 3.1**: Visual Battle HUD (Move Highlighting).
-- [x] **Task 3.2**: Game Corner "Token Wheel" Aesthetic Overhaul (Current).
-- [ ] **Task 3.3**: Post-Battle Analysis from the Professor.
+- [x] **Task 3.2**: Game Corner "Token Wheel" Overhaul.
+- [x] **Task 3.3**: Post-Battle Analysis from the Professor.
+
+### Phase 4: Mission HQ (Current)
+- [ ] **Task 4.1**: Daily Mission Engine (24h Reset & IDB Store).
+- [ ] **Task 4.2**: Progress Tracking (Hooks for Battle/Capture/Sell).
+- [ ] **Task 4.3**: Reward Claiming System.
 
 ## Technical Standards
 - **Model**: `gemini-3-pro-preview` for complex reasoning (Specs & Analysis).
