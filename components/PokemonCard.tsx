@@ -1,6 +1,6 @@
 
 import React, { useState } from 'react';
-import type { Pokemon, Team } from '../types';
+import { PokemonRarity, type Pokemon, type Team } from '../types';
 import { RARITY_CONFIG, RESELL_VALUES, MAX_POKEMON_PER_TEAM } from '../constants';
 import Button from './Button';
 import { CoinsIcon, PlusIcon, Trash2Icon, BookUserIcon } from './icons';
@@ -18,8 +18,12 @@ interface PokemonCardProps {
 const PokemonCard: React.FC<PokemonCardProps> = ({ pokemon, teams, onResell, onDelete, onAddToTeam }) => {
   const [isAddingToTeam, setIsAddingToTeam] = useState(false);
   const [showDetails, setShowDetails] = useState(false);
-  const { color, shadow } = RARITY_CONFIG[pokemon.rarity];
-  const resellValue = RESELL_VALUES[pokemon.rarity];
+  
+  // Defensive check for rarity config
+  const rarityConfig = RARITY_CONFIG[pokemon.rarity] || RARITY_CONFIG[PokemonRarity.COMMON];
+  const { color, shadow } = rarityConfig;
+  
+  const resellValue = RESELL_VALUES[pokemon.rarity] || RESELL_VALUES[PokemonRarity.COMMON];
   
   const isPokemonInAnyTeam = teams.some(team => team.pokemonIds.includes(pokemon.id));
 

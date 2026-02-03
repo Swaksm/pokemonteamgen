@@ -36,7 +36,10 @@ const POKEMON_SCHEMA = {
     type: Type.OBJECT,
     properties: {
         name: { type: Type.STRING },
-        rarity: { type: Type.STRING },
+        rarity: { 
+          type: Type.STRING, 
+          description: "Must be exactly one of: Common, Rare, Epic, Legendary" 
+        },
         types: { type: Type.ARRAY, items: { type: Type.STRING } },
         imagePrompt: { type: Type.STRING },
         stats: STATS_SCHEMA,
@@ -48,6 +51,13 @@ const POKEMON_SCHEMA = {
         }
     },
     required: ["name", "rarity", "types", "imagePrompt", "stats", "attacks", "lore", "synthesisReport"]
+};
+
+// Helper to ensure rarity matches our enum
+const validateRarity = (rarityStr: string): PokemonRarity => {
+  const normalized = rarityStr?.trim().toLowerCase();
+  const match = Object.values(PokemonRarity).find(r => r.toLowerCase() === normalized);
+  return match || PokemonRarity.COMMON;
 };
 
 async function generatePokemonImage(prompt: string): Promise<string> {
@@ -65,8 +75,6 @@ async function generatePokemonImage(prompt: string): Promise<string> {
 }
 
 export const generatePokemon = async (spec?: string): Promise<Omit<Pokemon, 'id' | 'status'>> => {
-  // Optimization: Use gemini-3-flash-preview for everything to maximize speed
-  // and set thinkingBudget to 0 for near-instant text generation
   const model = 'gemini-3-flash-preview';
   const prompt = spec 
     ? `Create a unique Pokemon based on this specification: "${spec}". Provide a synthesisReport explaining your logic.`
@@ -89,7 +97,7 @@ export const generatePokemon = async (spec?: string): Promise<Omit<Pokemon, 'id'
     apiId: -Math.floor(Math.random() * 1000000),
     name: raw.name,
     imageUrl,
-    rarity: Object.values(PokemonRarity).includes(raw.rarity) ? raw.rarity : PokemonRarity.COMMON,
+    rarity: validateRarity(raw.rarity),
     types: raw.types.slice(0, 2),
     stats: raw.stats,
     attacks: raw.attacks,
@@ -173,7 +181,7 @@ export const generateTeamOfPokemon = async (): Promise<Omit<Pokemon, 'id' | 'sta
       apiId: -Math.floor(Math.random() * 1000000),
       name: raw.name,
       imageUrl,
-      rarity: raw.rarity,
+      rarity: validateRarity(raw.rarity),
       types: raw.types,
       stats: raw.stats,
       attacks: raw.attacks,
