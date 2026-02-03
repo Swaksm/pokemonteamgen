@@ -27,10 +27,15 @@ A Pokémon Team Builder where AI is not just a generator, but a strategic "Profe
 - [x] **Task 3.2**: Game Corner "Token Wheel" Overhaul.
 - [x] **Task 3.3**: Post-Battle Analysis from the Professor.
 
-### Phase 4: Mission HQ (Current)
-- [ ] **Task 4.1**: Daily Mission Engine (24h Reset & IDB Store).
-- [ ] **Task 4.2**: Progress Tracking (Hooks for Battle/Capture/Sell).
-- [ ] **Task 4.3**: Reward Claiming System.
+### Phase 4: Mission HQ (Completed)
+- [x] **Task 4.1**: Daily Mission Engine (24h Reset & IDB Store).
+- [x] **Task 4.2**: Progress Tracking (Hooks for Battle/Capture/Sell).
+- [x] **Task 4.3**: Reward Claiming System.
+
+### Phase 5: Casino Expansion (Current)
+- [ ] **Task 5.1**: "Binary Prediction" (Heads or Tails) Wagering Game.
+- [ ] **Task 5.2**: Interactive Betting UI with balance validation.
+- [ ] **Task 5.3**: CSS-based Coin Flip Animation.
 
 ## Technical Standards
 - **Model**: `gemini-3-pro-preview` for complex reasoning (Specs & Analysis).
