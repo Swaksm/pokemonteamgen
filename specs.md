@@ -33,11 +33,37 @@ A Pokémon Team Builder where AI is not just a generator, but a strategic "Profe
 - [x] **Task 4.3**: Reward Claiming System.
 
 ### Phase 5: Casino Expansion (Current)
-- [ ] **Task 5.1**: "Binary Prediction" (Heads or Tails) Wagering Game.
-- [ ] **Task 5.2**: Interactive Betting UI with balance validation.
-- [ ] **Task 5.3**: CSS-based Coin Flip Animation.
+- [x] **Task 5.1**: "Binary Prediction" (Heads or Tails) Wagering Engine.
+- [x] **Task 5.2**: Interactive Betting UI with balance validation.
+- [x] **Task 5.3**: CSS-based Coin Flip Animation.
+
+---
+
+## Methodology: Binary Flip (Pile ou Face)
+
+### 1. Game Mechanics
+- **Probability**: Strict 50/50 distribution using `Math.random()`.
+- **Wagering**: Users commit a variable amount of tokens ($X$).
+- **Multipliers**:
+  - **Win**: $X \times 2.0$ (Double).
+  - **Loss**: $X \times 0.0$ (Bust).
+- **Validation**: System must check `currentBalance >= betAmount` before initiation.
+
+### 2. Visual Design Specification
+- **Theme**: Cyber-Casino aesthetic using `Cyan-500` (Heads) and `Purple-500` (Tails).
+- **Coin Asset**: 
+  - **Heads**: Stylized Pokeball icon.
+  - **Tails**: Minimalist "T" symbol.
+- **Animation**: 
+  - 2-second high-speed CSS rotation (`spin_linear_infinite`).
+  - Scale transform (1.25x) during active prediction to simulate physical flip.
+
+### 3. User Experience (UX)
+- **Fast Betting**: Implementation of "Half" and "Max" buttons to minimize friction.
+- **Immediate Feedback**: Balance updates instantly upon result resolution to maintain high engagement.
+- **Anti-Spam**: Button disabling during animation to prevent race conditions in token updates.
 
 ## Technical Standards
-- **Model**: `gemini-3-pro-preview` for complex reasoning (Specs & Analysis).
+- **Model**: `gemini-3-flash-preview` for generation and rapid UI response.
 - **Styling**: Tailwind CSS with custom Laboratory theme (Cyan/Purple).
 - **Architecture**: Modular React components with strict TypeScript interfaces.

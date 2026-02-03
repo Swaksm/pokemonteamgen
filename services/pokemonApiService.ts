@@ -65,7 +65,9 @@ async function generatePokemonImage(prompt: string): Promise<string> {
 }
 
 export const generatePokemon = async (spec?: string): Promise<Omit<Pokemon, 'id' | 'status'>> => {
-  const model = spec ? 'gemini-3-pro-preview' : 'gemini-3-flash-preview';
+  // Optimization: Use gemini-3-flash-preview for everything to maximize speed
+  // and set thinkingBudget to 0 for near-instant text generation
+  const model = 'gemini-3-flash-preview';
   const prompt = spec 
     ? `Create a unique Pokemon based on this specification: "${spec}". Provide a synthesisReport explaining your logic.`
     : `Generate a new, unique, and creative Pokémon. Provide a synthesisReport explaining your logic.`;
@@ -76,6 +78,7 @@ export const generatePokemon = async (spec?: string): Promise<Omit<Pokemon, 'id'
     config: {
       responseMimeType: "application/json",
       responseSchema: POKEMON_SCHEMA,
+      thinkingConfig: { thinkingBudget: 0 } 
     },
   });
 
@@ -98,8 +101,9 @@ export const generatePokemon = async (spec?: string): Promise<Omit<Pokemon, 'id'
 export const analyzeTeamSynergy = async (teamPokemons: Pokemon[]): Promise<string> => {
   const teamContext = teamPokemons.map(p => `${p.name} (${p.types?.join('/')})`).join('\n');
   const response = await ai.models.generateContent({
-    model: 'gemini-3-pro-preview',
+    model: 'gemini-3-flash-preview',
     contents: `Analyze this Pokemon team and provide a brief strategic report.\n\nTeam:\n${teamContext}`,
+    config: { thinkingConfig: { thinkingBudget: 0 } }
   });
   return response.text;
 };
@@ -121,7 +125,8 @@ Moves available: ${playerActive.attacks.map((a:any) => a.name).join(', ')}`;
               recommendedMove: { type: Type.STRING, description: "The exact name of the move to use." }
             },
             required: ["advice", "recommendedMove"]
-          }
+          },
+          thinkingConfig: { thinkingBudget: 0 }
         }
     });
     return JSON.parse(response.text);
@@ -143,6 +148,7 @@ export const generateStatsForPokemon = async (name: string, rarity: PokemonRarit
         },
         required: ["types", "stats", "attacks", "lore"]
       },
+      thinkingConfig: { thinkingBudget: 0 }
     },
   });
 
@@ -156,6 +162,7 @@ export const generateTeamOfPokemon = async (): Promise<Omit<Pokemon, 'id' | 'sta
     config: {
       responseMimeType: "application/json",
       responseSchema: { type: Type.ARRAY, items: POKEMON_SCHEMA },
+      thinkingConfig: { thinkingBudget: 0 }
     },
   });
 
